@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PPL x Arnold Workout Tracker</title>
+  <style>
+    :root {
+      --bg: #07130d;
+      --panel: #0e2319;
+      --panel-2: #133022;
+      --accent: #37c777;
+      --accent-soft: #2da162;
+      --text: #e6f5ec;
+      --muted: #9cc7ad;
+      --danger: #b54a4a;
+      --shadow: rgba(0, 0, 0, 0.35);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(circle at top, #10271c, var(--bg) 40%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .container {
+      width: min(1100px, 95vw);
+      margin: 2rem auto;
+      display: grid;
+      gap: 1rem;
+    }
+
+    .card {
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid #1f4a36;
+      border-radius: 14px;
+      padding: 1rem;
+      box-shadow: 0 10px 24px var(--shadow);
+    }
+
+    h1, h2, h3 { margin: 0 0 .6rem; }
+    h1 { font-size: clamp(1.5rem, 3.2vw, 2.3rem); }
+    p { margin: .25rem 0; color: var(--muted); }
+
+    .summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .75rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .pill {
+      background: rgba(55, 199, 119, 0.14);
+      border: 1px solid rgba(55, 199, 119, 0.45);
+      color: #b9f7d1;
+      padding: .35rem .7rem;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: .92rem;
+    }
+
+    .entry-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: .7rem;
+      margin-top: .8rem;
+    }
+
+    label { font-size: .9rem; color: #c9e6d5; }
+
+    input, textarea, select, button {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid #2d6b4d;
+      background: #0b1e15;
+      color: var(--text);
+      padding: .55rem .65rem;
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      background: linear-gradient(180deg, var(--accent), var(--accent-soft));
+      color: #062012;
+      font-weight: 700;
+      border: none;
+    }
+
+    button.secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid #417a5f;
+    }
+
+    .day-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: .9rem;
+    }
+
+    .exercise {
+      border: 1px solid #285e44;
+      border-radius: 12px;
+      padding: .65rem;
+      margin: .5rem 0;
+      background: rgba(8, 21, 14, 0.55);
+    }
+
+    .exercise-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    .toggle {
+      width: auto;
+      transform: scale(1.1);
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: .85rem;
+    }
+
+    .log-fields {
+      display: none;
+      margin-top: .6rem;
+      gap: .4rem;
+      grid-template-columns: repeat(2, minmax(100px, 1fr));
+    }
+
+    .exercise.active .log-fields {
+      display: grid;
+    }
+
+    .history-item {
+      border-left: 3px solid var(--accent);
+      padding: .5rem .7rem;
+      margin: .55rem 0;
+      background: rgba(55, 199, 119, 0.08);
+      border-radius: 8px;
+    }
+
+    .small { font-size: .85rem; }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .45rem;
+      align-items: center;
+    }
+
+    .danger {
+      background: linear-gradient(180deg, #d77e7e, var(--danger));
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <section class="card">
+      <div class="summary">
+        <div>
+          <h1>PPL x Arnold — Daily Workout Tracker</h1>
+          <p id="todayText">Today's split:</p>
+        </div>
+        <div class="pill" id="dayPill"></div>
+      </div>
+      <div class="entry-controls">
+        <div>
+          <label for="entryDate">Entry Date (auto-recorded)</label>
+          <input id="entryDate" type="date" readonly />
+        </div>
+        <div>
+          <label for="energy">Energy (1-10)</label>
+          <input id="energy" type="number" min="1" max="10" placeholder="e.g. 8" />
+        </div>
+        <div>
+          <label for="dayNotes">Daily Notes</label>
+          <textarea id="dayNotes" rows="1" placeholder="Sleep, soreness, nutrition..."></textarea>
+        </div>
+        <div class="row">
+          <button id="saveBtn">Save Daily Entry</button>
+          <button class="secondary" id="loadTodayBtn" type="button">Load Today's Log</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Weekly Split (Day 1 starts Monday)</h2>
+      <div id="days" class="day-grid"></div>
+    </section>
+
+    <section class="card">
+      <div class="row" style="justify-content: space-between;">
+        <h2>Saved Entries</h2>
+        <button id="clearBtn" class="danger" type="button" style="width:auto;">Clear All Logs</button>
+      </div>
+      <div id="history"></div>
+    </section>
+  </main>
+
+  <script>
+    const split = [
+      {
+        day: 1,
+        title: 'Monday — Chest / Triceps / Shoulders',
+        exercises: [
+          { name: 'Bench Press', prescription: '2 warm up, 3 sets to failure' },
+          { name: 'Incline Dumbbell Press', prescription: '4 sets to failure' },
+          { name: 'Cable Flyes (Machine)', prescription: '5 sets to failure' },
+          { name: 'Tricep Pushdowns', prescription: '4 sets to failure' },
+          { name: 'Skull Crushers', prescription: '4 sets to failure' },
+          { name: 'Machine Rear Delt Flyes', prescription: '5 sets to failure' },
+          { name: 'Lateral Raises', prescription: '5 sets to failure' }
+        ]
+      },
+      {
+        day: 2,
+        title: 'Tuesday — Back / Biceps',
+        exercises: [
+          { name: 'Lat Pulldowns', prescription: '5 sets to failure' },
+          { name: 'Sitting Rows (change grip)', prescription: '5 sets to failure' },
+          { name: 'Shrugs', prescription: '5 sets to failure' },
+          { name: 'Preacher Curls', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Dumbbell Hammer Curls', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Reverse Grip EZ Bar Curls', prescription: 'Around 4 sets to failure after warmup' }
+        ]
+      },
+      {
+        day: 3,
+        title: 'Wednesday — Legs / Shoulders',
+        exercises: [
+          { name: 'Squat or Leg Press', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Hamstring Curls', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Leg Extensions', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Calf Raises', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Shoulder Press', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Lateral Raises', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Machine Rear Delt Flyes', prescription: 'Around 4 sets to failure after warmup' }
+        ]
+      },
+      {
+        day: 4,
+        title: 'Thursday — Chest / Back',
+        exercises: [
+          { name: 'Pull-Ups', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Shrugs', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Lat Pushdown', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Smith Machine Incline Bench Press', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Chest Press (Machine)', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Dips', prescription: 'Around 4 sets to failure after warmup' }
+        ]
+      },
+      {
+        day: 5,
+        title: 'Friday — Shoulders / Arms',
+        exercises: [
+          { name: 'Shoulder Press', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Lateral Raises', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Rear Delt Flyes', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Tricep Pushdowns', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Skull Crushers', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Preacher Curls / Hammer Curls', prescription: 'Around 4 sets to failure after warmup' }
+        ]
+      },
+      {
+        day: 6,
+        title: 'Saturday — Legs',
+        exercises: [
+          { name: 'Squat or Leg Press', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Hamstring Curls', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Leg Extensions', prescription: 'Around 4 sets to failure after warmup' },
+          { name: 'Calf Raises', prescription: 'Around 4 sets to failure after warmup' }
+        ]
+      },
+      {
+        day: 7,
+        title: 'Sunday — Rest / Cardio',
+        exercises: [
+          { name: 'Cardio Session', prescription: 'Optional zone 2 or recovery walk' },
+          { name: 'Mobility / Stretch', prescription: '10-20 minutes' }
+        ]
+      }
+    ];
+
+    const today = new Date();
+    const isoDate = today.toISOString().slice(0, 10);
+    const jsDay = today.getDay(); // Sunday 0 ... Saturday 6
+    const splitDay = jsDay === 0 ? 7 : jsDay;
+
+    const entryDate = document.getElementById('entryDate');
+    const dayPill = document.getElementById('dayPill');
+    const todayText = document.getElementById('todayText');
+    const daysEl = document.getElementById('days');
+    const historyEl = document.getElementById('history');
+
+    entryDate.value = isoDate;
+    dayPill.textContent = `Day ${splitDay}`;
+    const activeDay = split.find((d) => d.day === splitDay);
+    todayText.textContent = `Today's split: ${activeDay.title}`;
+
+    function entryKey() {
+      return `ppl-arnold-log-${entryDate.value}`;
+    }
+
+    function renderDays() {
+      daysEl.innerHTML = '';
+      split.forEach((day) => {
+        const card = document.createElement('article');
+        card.className = 'card';
+        card.style.borderColor = day.day === splitDay ? '#37c777' : '#285e44';
+
+        let exerciseHtml = '';
+        day.exercises.forEach((exercise, idx) => {
+          const id = `d${day.day}e${idx}`;
+          exerciseHtml += `
+            <div class="exercise" data-exercise-id="${id}">
+              <div class="exercise-head">
+                <div>
+                  <strong>${exercise.name}</strong>
+                  <div class="meta">${exercise.prescription}</div>
+                </div>
+                <label class="small">Log sets/reps <input class="toggle" type="checkbox" data-toggle="${id}" /></label>
+              </div>
+              <div class="log-fields" id="${id}">
+                <input type="number" min="0" placeholder="Sets done" data-field="sets" />
+                <input type="text" placeholder="Reps (e.g. 10,8,8)" data-field="reps" />
+                <textarea style="grid-column:1/-1;" rows="1" placeholder="Exercise notes" data-field="notes"></textarea>
+              </div>
+            </div>`;
+        });
+
+        card.innerHTML = `<h3>${day.title}</h3>${exerciseHtml}`;
+        daysEl.appendChild(card);
+      });
+
+      document.querySelectorAll('[data-toggle]').forEach((toggle) => {
+        toggle.addEventListener('change', (e) => {
+          const id = e.target.getAttribute('data-toggle');
+          const wrapper = e.target.closest('.exercise');
+          wrapper.classList.toggle('active', e.target.checked);
+          document.getElementById(id).querySelector('[data-field="sets"]').focus();
+        });
+      });
+    }
+
+    function gatherWorkoutLog() {
+      const exercises = [];
+      document.querySelectorAll('.exercise').forEach((exercise) => {
+        const toggle = exercise.querySelector('.toggle');
+        if (!toggle.checked) return;
+
+        const title = exercise.querySelector('strong').textContent;
+        const prescription = exercise.querySelector('.meta').textContent;
+        const sets = exercise.querySelector('[data-field="sets"]').value;
+        const reps = exercise.querySelector('[data-field="reps"]').value;
+        const notes = exercise.querySelector('[data-field="notes"]').value;
+        exercises.push({ title, prescription, sets, reps, notes });
+      });
+      return exercises;
+    }
+
+    function saveEntry() {
+      const entry = {
+        date: entryDate.value,
+        splitDay,
+        splitTitle: activeDay.title,
+        energy: document.getElementById('energy').value,
+        dayNotes: document.getElementById('dayNotes').value,
+        exercises: gatherWorkoutLog()
+      };
+
+      localStorage.setItem(entryKey(), JSON.stringify(entry));
+      renderHistory();
+      alert('Daily entry saved!');
+    }
+
+    function loadToday() {
+      const raw = localStorage.getItem(entryKey());
+      if (!raw) {
+        alert('No saved entry for today yet.');
+        return;
+      }
+
+      const entry = JSON.parse(raw);
+      document.getElementById('energy').value = entry.energy || '';
+      document.getElementById('dayNotes').value = entry.dayNotes || '';
+
+      document.querySelectorAll('.toggle').forEach((toggle) => {
+        toggle.checked = false;
+        toggle.closest('.exercise').classList.remove('active');
+      });
+      document.querySelectorAll('[data-field]').forEach((el) => (el.value = ''));
+
+      entry.exercises.forEach((saved) => {
+        document.querySelectorAll('.exercise').forEach((exercise) => {
+          const title = exercise.querySelector('strong').textContent;
+          if (title !== saved.title) return;
+          const toggle = exercise.querySelector('.toggle');
+          toggle.checked = true;
+          exercise.classList.add('active');
+          exercise.querySelector('[data-field="sets"]').value = saved.sets || '';
+          exercise.querySelector('[data-field="reps"]').value = saved.reps || '';
+          exercise.querySelector('[data-field="notes"]').value = saved.notes || '';
+        });
+      });
+
+      alert('Loaded today\'s saved log.');
+    }
+
+    function renderHistory() {
+      const keys = Object.keys(localStorage)
+        .filter((k) => k.startsWith('ppl-arnold-log-'))
+        .sort()
+        .reverse();
+
+      if (!keys.length) {
+        historyEl.innerHTML = '<p>No logs yet. Save your first daily entry above.</p>';
+        return;
+      }
+
+      historyEl.innerHTML = keys.map((k) => {
+        const entry = JSON.parse(localStorage.getItem(k));
+        return `
+          <div class="history-item">
+            <strong>${entry.date}</strong> — Day ${entry.splitDay}: ${entry.splitTitle}<br />
+            <span class="small">Energy: ${entry.energy || 'n/a'} | Notes: ${entry.dayNotes || 'None'}</span><br />
+            <span class="small">Logged exercises: ${entry.exercises.length}</span>
+          </div>`;
+      }).join('');
+    }
+
+    renderDays();
+    renderHistory();
+
+    document.getElementById('saveBtn').addEventListener('click', saveEntry);
+    document.getElementById('loadTodayBtn').addEventListener('click', loadToday);
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      if (!confirm('Clear all saved logs?')) return;
+      Object.keys(localStorage).forEach((k) => {
+        if (k.startsWith('ppl-arnold-log-')) localStorage.removeItem(k);
+      });
+      renderHistory();
+    });
+  </script>
+</body>
+</html>
